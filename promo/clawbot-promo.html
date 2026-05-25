@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ClawBot — Promo Demo</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&display=swap');
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  background: #0a0a0f;
+  font-family: 'Inter', -apple-system, sans-serif;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+.phone {
+  width: 393px;
+  height: 852px;
+  background: #000;
+  border-radius: 60px;
+  padding: 20px;
+  position: relative;
+  box-shadow: 0 0 0 3px #1a1a2e, 0 0 60px rgba(99, 102, 241, 0.2);
+  overflow: hidden;
+}
+
+.phone-notch {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 150px;
+  height: 34px;
+  background: #000;
+  border-radius: 0 0 18px 18px;
+  z-index: 10;
+}
+
+.phone-status {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 8px 12px;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  position: relative;
+  z-index: 5;
+}
+
+.screen {
+  background: #0f0f1a;
+  border-radius: 40px;
+  height: calc(100% - 40px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  position: relative;
+}
+
+/* Header */
+.chat-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: #161625;
+  border-bottom: 1px solid #1e1e32;
+}
+
+.chat-header .avatar {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.chat-header .info h3 {
+  color: #fff;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.chat-header .info p {
+  color: #22c55e;
+  font-size: 11px;
+}
+
+.chat-header .dots {
+  margin-left: auto;
+  display: flex;
+  gap: 3px;
+}
+
+.chat-header .dots span {
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #555;
+}
+
+/* Messages */
+.chat-area {
+  flex: 1;
+  padding: 16px 14px;
+  overflow: hidden;
+  position: relative;
+}
+
+.messages {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: absolute;
+  bottom: 16px;
+  left: 14px;
+  right: 14px;
+}
+
+.msg {
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: 18px;
+  font-size: 14px;
+  line-height: 1.5;
+  opacity: 0;
+  animation: popIn 0.4s ease forwards;
+}
+
+.msg.bot {
+  align-self: flex-start;
+  background: #1a1a2e;
+  color: #e0e0f0;
+  border-bottom-left-radius: 4px;
+}
+
+.msg.user {
+  align-self: flex-end;
+  background: #6366f1;
+  color: #fff;
+  border-bottom-right-radius: 4px;
+}
+
+.msg.system {
+  align-self: center;
+  background: transparent;
+  color: #888;
+  font-size: 11px;
+  padding: 4px 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.msg strong {
+  color: #a78bfa;
+}
+
+.msg .emoji {
+  font-size: 18px;
+}
+
+.msg .big {
+  font-size: 24px;
+}
+
+/* Typing indicator */
+.typing {
+  align-self: flex-start;
+  background: #1a1a2e;
+  padding: 12px 16px;
+  border-radius: 18px;
+  border-bottom-left-radius: 4px;
+  display: flex;
+  gap: 5px;
+  opacity: 0;
+}
+
+.typing span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #555;
+  animation: bounce 1.4s ease infinite;
+}
+
+.typing span:nth-child(2) { animation-delay: 0.2s; }
+.typing span:nth-child(3) { animation-delay: 0.4s; }
+
+/* Bottom bar */
+.chat-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px 20px;
+  background: #0f0f1a;
+  border-top: 1px solid #1e1e32;
+}
+
+.chat-input .field {
+  flex: 1;
+  background: #1a1a2e;
+  border-radius: 20px;
+  padding: 10px 16px;
+  color: #555;
+  font-size: 14px;
+}
+
+.chat-input .send {
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: #6366f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fff;
+  font-size: 16px;
+}
+
+/* Bottom overlay / cta */
+.overlay {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 30px 20px 50px;
+  background: linear-gradient(transparent, #0f0f1a 40%);
+  text-align: center;
+  opacity: 0;
+  transition: opacity 0.8s;
+  z-index: 10;
+}
+
+.overlay.show {
+  opacity: 1;
+}
+
+.overlay h2 {
+  color: #fff;
+  font-size: 22px;
+  margin-bottom: 6px;
+}
+
+.overlay p {
+  color: #888;
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.overlay .price {
+  font-size: 36px;
+  font-weight: 800;
+  color: #fff;
+  background: linear-gradient(135deg, #6366f1, #a78bfa);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  display: inline-block;
+}
+
+/* Animations */
+@keyframes popIn {
+  0% { opacity: 0; transform: translateY(10px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes bounce {
+  0%, 80%, 100% { transform: translateY(0); }
+  40% { transform: translateY(-8px); }
+}
+
+/* Message timings */
+.msg:nth-child(1) { animation-delay: 0.5s; }
+.msg:nth-child(2) { animation-delay: 2.5s; }
+.msg:nth-child(3) { animation-delay: 4s; }
+.msg:nth-child(4) { animation-delay: 5.5s; }
+.msg:nth-child(5) { animation-delay: 7.5s; }
+.msg:nth-child(6) { animation-delay: 9.5s; }
+.msg:nth-child(7) { animation-delay: 11.5s; }
+.msg:nth-child(8) { animation-delay: 13.5s; }
+.msg:nth-child(9) { animation-delay: 15.5s; }
+.msg:nth-child(10) { animation-delay: 17.5s; }
+.msg:nth-child(11) { animation-delay: 19.5s; }
+.msg:nth-child(12) { animation-delay: 21.5s; }
+.msg:nth-child(13) { animation-delay: 23.5s; }
+
+.typing { animation: fadeInTyping 0.3s forwards; }
+.typing:nth-of-type(1) { animation-delay: 1.8s; }
+.typing:nth-of-type(2) { animation-delay: 3.5s; }
+.typing:nth-of-type(3) { animation-delay: 5s; }
+.typing:nth-of-type(4) { animation-delay: 7s; }
+.typing:nth-of-type(5) { animation-delay: 9s; }
+.typing:nth-of-type(6) { animation-delay: 11s; }
+.typing:nth-of-type(7) { animation-delay: 13s; }
+.typing:nth-of-type(8) { animation-delay: 15s; }
+.typing:nth-of-type(9) { animation-delay: 17s; }
+.typing:nth-of-type(10) { animation-delay: 19s; }
+.typing:nth-of-type(11) { animation-delay: 21s; }
+
+@keyframes fadeInTyping {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.overlay { animation: showOverlay 0.8s 24s forwards; }
+@keyframes showOverlay {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+</style>
+</head>
+<body>
+<div class="phone">
+  <div class="phone-notch"></div>
+  <div class="phone-status">
+    <span>9:41</span>
+    <span>◉ 🔋 94%</span>
+  </div>
+  <div class="screen">
+    <div class="chat-header">
+      <div class="avatar">🦞</div>
+      <div class="info">
+        <h3>OpenClaw Setup</h3>
+        <p>● Online</p>
+      </div>
+      <div class="dots">
+        <span></span><span></span><span></span>
+      </div>
+    </div>
+
+    <div class="chat-area">
+      <div class="messages">
+        <!-- Welcome -->
+        <div class="msg bot">
+          🦞 <strong>ClawBot here!</strong><br><br>
+          I'll guide you through installing OpenClaw on your phone in <strong>30 minutes</strong>.<br><br>
+          Ready to start? Just tap <strong>/start</strong>
+        </div>
+        <div class="typing"><span></span><span></span><span></span></div>
+        <div class="msg user">/start</div>
+        <div class="typing"><span></span><span></span><span></span></div>
+
+        <!-- Confirm ready -->
+        <div class="msg bot">
+          🚀 <strong>Let's go!</strong><br><br>
+          Quick check — do you have:<br>
+          ✅ 40 minutes uninterrupted?<br>
+          ✅ A credit card (for AWS verification)?<br>
+          ✅ Email access?<br><br>
+          Reply <strong>yes</strong> when ready.
+        </div>
+        <div class="typing"><span></span><span></span><span></span></div>
+        <div class="msg user">yes</div>
+        <div class="typing"><span></span><span></span><span></span></div>
+
+        <!-- AWS Account -->
+        <div class="msg bot">
+          📱 <strong>Step 1 of 5 — AWS Account</strong><br><br>
+          We need a cloud server that runs 24/7.<br>
+          AWS gives you <strong>12 months FREE</strong>.<br><br>
+          Tap here → <strong>aws.amazon.com/free</strong><br><br>
+          Reply <strong>created</strong> when done.
+        </div>
+        <div class="typing"><span></span><span></span><span></span></div>
+        <div class="msg user">created ✅</div>
+        <div class="typing"><span></span><span></span><span></span></div>
+
+        <!-- EC2 Launch -->
+        <div class="msg bot">
+          ✅ AWS account ready!<br><br>
+          🚀 <strong>Step 2 of 5 — Launch Server</strong><br><br>
+          Search <strong>EC2</strong> in AWS Console →<br>
+          · Name: <strong>openclaw-server</strong><br>
+          · OS: Ubuntu 22.04 (free tier)<br>
+          · Type: t2.micro<br>
+          · Launch & download key pair<br><br>
+          Reply <strong>launched</strong> when it's running.
+        </div>
+        <div class="typing"><span></span><span></span><span></span></div>
+        <div class="msg user">launched 🚀</div>
+        <div class="typing"><span></span><span></span><span></span></div>
+
+        <!-- Termius -->
+        <div class="msg bot">
+          🎉 Server running!<br><br>
+          📱 <strong>Step 3 of 5 — Install Termius</strong><br><br>
+          Download <strong>Termius</strong> SSH app:<br>
+          · iPhone → App Store<br>
+          · Android → Play Store<br><br>
+          Reply <strong>installed</strong> when ready.
+        </div>
+        <div class="typing"><span></span><span></span><span></span></div>
+        <div class="msg user">installed ✅</div>
+        <div class="typing"><span></span><span></span><span></span></div>
+
+        <!-- SSH Connect -->
+        <div class="msg bot">
+          🔐 <strong>Connect to your server</strong><br><br>
+          In Termius:<br>
+          1. Keychain → Import .pem file<br>
+          2. Hosts → +New<br>
+          3. Hostname: [your server IP]<br>
+          4. Username: ubuntu<br>
+          5. Key: my-phone-key<br>
+          6. Connect!<br><br>
+          Reply <strong>connected</strong> when you see the terminal.
+        </div>
+        <div class="typing"><span></span><span></span><span></span></div>
+        <div class="msg user">connected 🔌</div>
+        <div class="typing"><span></span><span></span><span></span></div>
+
+        <!-- Install OpenClaw -->
+        <div class="msg bot">
+          🦞 <strong>Step 4 of 5 — Install OpenClaw</strong><br><br>
+          Paste this in Termius:<br><br>
+          <code style="background:#111;color:#a78bfa;padding:4px 8px;border-radius:6px;font-size:13px;">curl -fsSL https://openclaw.ai/install.sh | bash</code><br><br>
+          Takes 2–3 min. When it asks for LLM provider, reply <strong>choose</strong>.
+        </div>
+        <div class="typing"><span></span><span></span><span></span></div>
+        <div class="msg user">choose</div>
+        <div class="typing"><span></span><span></span><span></span></div>
+
+        <!-- API Key -->
+        <div class="msg bot">
+          🔑 <strong>Get your API key</strong><br><br>
+          Type <strong>anthropic</strong> in the terminal.<br><br>
+          Then get your key at:<br>
+          console.anthropic.com → API Keys<br>
+          Paste it in your terminal ⚠️<br><br>
+          Reply <strong>added</strong> when done.
+        </div>
+        <div class="typing"><span></span><span></span><span></span></div>
+        <div class="msg user">added 🔑</div>
+        <div class="typing"><span></span><span></span><span></span></div>
+
+        <!-- Done -->
+        <div class="msg bot">
+          🎊 <strong>CONGRATS!</strong><br><br>
+          You just set up a cloud server, installed OpenClaw, and built a website — <strong>from your phone.</strong><br><br>
+          🎁 Use /bonuses for the guide & templates<br><br>
+          What do you want to build next?
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-input">
+      <div class="field">Type a message...</div>
+      <div class="send">➤</div>
+    </div>
+
+    <div class="overlay" id="overlay">
+      <h2>🦞 Get ClawBot</h2>
+      <p>Guided OpenClaw setup on your phone</p>
+      <div class="price">$49</div>
+      <p style="margin-top:10px;color:#666;font-size:12px;">30 minutes · Everything from your phone</p>
+    </div>
+  </div>
+</div>
+</body>
+</html>

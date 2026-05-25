@@ -23,6 +23,7 @@ from telegram.ext import (
 import db
 import payments
 import flow
+import faq as faq_module
 
 logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
@@ -246,6 +247,19 @@ async def cmd_bonuses(update: Update, context: ContextTypes.DEFAULT_TYPE):
             await update.message.reply_text(f"⚠️ Couldn't send {fname}: {e}")
 
 
+# ---------- FAQ ----------
+
+async def cmd_faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await _ensure_user(update)
+    keyboard = faq_module.get_categories_keyboard()
+    await update.message.reply_text(
+        "📖 *ClawBot FAQ*\n\n"
+        "Select a topic below to see common issues and fixes:",
+        parse_mode=MD,
+        reply_markup=InlineKeyboardMarkup(keyboard),
+    )
+
+
 # ---------- Admin ----------
 
 async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -334,6 +348,21 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
                 parse_mode=MD,
             )
 
+    elif query.data.startswith("faq_"):
+        category = query.data[4:]
+        if category == "all":
+            text = faq_module.format_faq()
+            keyboard = [[InlineKeyboardButton("🔙 Back to Topics", callback_data="back")]]
+        else:
+            text = faq_module.format_faq(category)
+            keyboard = faq_module.get_categories_keyboard()
+        await query.message.reply_text(
+            text, parse_mode=MD, reply_markup=InlineKeyboardMarkup(keyboard)
+        )
+
+    elif query.data == "back":
+        await cmd_faq(update, context)
+
 
 async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
@@ -405,6 +434,7 @@ def main():
     app.add_handler(CommandHandler("support", cmd_support))
     app.add_handler(CommandHandler("refund", cmd_refund))
     app.add_handler(CommandHandler("bonuses", cmd_bonuses))
+    app.add_handler(CommandHandler("faq", cmd_faq))
     app.add_handler(CommandHandler("admin", cmd_admin))
     app.add_handler(CallbackQueryHandler(on_button))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_message))
