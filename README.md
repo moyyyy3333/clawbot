@@ -1,6 +1,6 @@
 # 🦞 ClawBot — Premium OpenClaw Setup Assistant
 
-A $49 Telegram bot that guides users through setting up OpenClaw on a cloud server in ~30 minutes. Stripe-gated, refundable, deployable to Railway.
+A $49 Telegram bot that guides users through setting up Hermes or OpenClaw on a cloud server in ~30 minutes. Stripe-gated, refundable, deployable to Fly.io (Railway retired — too expensive).
 
 ## Layout
 
@@ -51,7 +51,30 @@ clawbot-setup/
    help - Show all commands
    ```
 
-## Deploy to Railway
+
+## Deploy to Fly.io
+
+1. Install flyctl and `fly auth login`.
+2. From this folder: `fly launch --copy-config --yes` (or create app `clawbot-pro` manually).
+3. Create a persistent volume for SQLite:
+   `fly volumes create clawbot_data --region iad --size 1`
+4. Set secrets (never commit these):
+   ```
+   fly secrets set \
+     TELEGRAM_BOT_TOKEN=... \
+     STRIPE_SECRET_KEY=... \
+     STRIPE_WEBHOOK_SECRET=... \
+     STRIPE_PRICE_ID=... \
+     PUBLIC_URL=https://clawbot-pro.fly.dev \
+     DB_PATH=/data/clawbot.db
+   ```
+5. `fly deploy`
+6. Stripe Dashboard → Webhooks → endpoint `https://clawbot-pro.fly.dev/stripe/webhook` for `checkout.session.completed` and `charge.refunded`.
+7. Bot uses long-polling (`bot.py`) — no Telegram webhook required. Keep `PUBLIC_URL` for Stripe redirects.
+
+`railway.json` is legacy and unused on Fly.
+
+## Deploy to Railway (legacy)
 
 1. `railway init` → connect GitHub repo for this folder.
 2. Add the `.env` values as Railway variables.
@@ -76,7 +99,11 @@ clawbot-setup/
 
 User goes through these stages in `flow.py`:
 
-`start → confirm_ready → aws_account → server_launch → termius_install → ssh_connect → openclaw_install → api_key → first_project → complete`
+`start → choose_stack → confirm_ready → aws_account → server_launch → termius_install → ssh_connect`
+  then OpenClaw: `openclaw_install → api_key → first_project → complete`
+  or Hermes: `hermes_install → hermes_api_key → hermes_first_project → complete`
+
+Chosen stack is stored in user `metadata["stack"]` (`hermes` | `openclaw`).
 
 Advancement requires a paid status + a keyword match in the user's reply. Non-text messages no longer crash the handler.
 
