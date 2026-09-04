@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-ClawBot — Premium OpenClaw Setup Assistant
-$49 guided setup in 30 minutes.
+ClawBot — Premium Hermes / OpenClaw Setup Assistant
+$49 guided setup in ~30 minutes.
 """
 
 import os
@@ -55,23 +55,16 @@ async def _ensure_user(update: Update):
 async def cmd_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await _ensure_user(update)
     keyboard = [
-        [InlineKeyboardButton("🚀 Start Setup — $49", callback_data="buy")],
+        [
+            InlineKeyboardButton("🦾 Hermes", callback_data="stack_hermes"),
+            InlineKeyboardButton("🦞 OpenClaw", callback_data="stack_openclaw"),
+        ],
+        [InlineKeyboardButton("💳 /buy — Unlock $49", callback_data="buy")],
         [InlineKeyboardButton("📹 What You'll Build", callback_data="demo")],
         [InlineKeyboardButton("💬 How It Works", callback_data="how")],
     ]
     await update.message.reply_text(
-        "👋 *I'm ClawBot*\n\n"
-        "I set up OpenClaw on your phone in 30 minutes. Guaranteed.\n\n"
-        "*What you get:*\n"
-        "✅ Cloud server running 24/7\n"
-        "✅ OpenClaw AI agent installed\n"
-        "✅ First website deployed & live\n"
-        "✅ 7-day premium support\n"
-        "✅ Full guide + templates ($37 value)\n\n"
-        "💰 *$49 one-time*\n"
-        "⏱️ *30 minutes*\n"
-        "💯 *Money-back guarantee*\n\n"
-        "Most people save 6+ hours vs DIY.",
+        flow.START_PITCH,
         reply_markup=InlineKeyboardMarkup(keyboard),
         parse_mode=MD,
     )
@@ -154,7 +147,15 @@ async def cmd_paid(update: Update, context: ContextTypes.DEFAULT_TYPE):
         "Your setup starts now. Takes 30–40 minutes.",
         parse_mode=MD,
     )
-    await _advance_to(update, context, "confirm_ready")
+    stack = (user_row.get("metadata") or {}).get("stack")
+    stage = user_row.get("stage") or "start"
+    # Resume mid-setup if already past stack choice; otherwise pick stack then shared flow.
+    if stage in flow.STAGES and stage not in ("choose_stack", "start"):
+        await _advance_to(update, context, stage)
+    elif stack in ("hermes", "openclaw"):
+        await _advance_to(update, context, "confirm_ready")
+    else:
+        await _advance_to_choose_stack(update, context)
 
 
 async def cmd_help(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -178,9 +179,11 @@ async def cmd_status(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stage = user_row.get("stage", "start") if user_row else "start"
     paid = bool(user_row and user_row.get("paid"))
     refunded = bool(user_row and user_row.get("refunded"))
+    stack = ((user_row or {}).get("metadata") or {}).get("stack") or "not chosen"
     await update.message.reply_text(
         f"*Your status*\n\n"
         f"• Paid: {'✅' if paid and not refunded else ('↩️ refunded' if refunded else '❌')}\n"
+        f"• Stack: `{stack}`\n"
         f"• Stage: `{stage}`\n\n"
         f"Use /paid to continue if your setup is paused.",
         parse_mode=MD,
@@ -279,6 +282,17 @@ async def cmd_admin(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # ---------- Flow ----------
 
+def _stack_keyboard():
+    return InlineKeyboardMarkup(
+        [
+            [
+                InlineKeyboardButton("🦾 Hermes", callback_data="stack_hermes"),
+                InlineKeyboardButton("🦞 OpenClaw", callback_data="stack_openclaw"),
+            ]
+        ]
+    )
+
+
 async def _advance_to(update: Update, context: ContextTypes.DEFAULT_TYPE, stage: str):
     user_id = update.effective_user.id
     db.set_stage(user_id, stage)
@@ -286,7 +300,44 @@ async def _advance_to(update: Update, context: ContextTypes.DEFAULT_TYPE, stage:
     if not stage_data:
         return
     target = update.message or update.callback_query.message
-    await target.reply_text(stage_data["prompt"], parse_mode=MD)
+    kwargs = {"parse_mode": MD}
+    if stage == "choose_stack":
+        kwargs["reply_markup"] = _stack_keyboard()
+    await target.reply_text(stage_data["prompt"], **kwargs)
+
+
+async def _advance_to_choose_stack(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await _advance_to(update, context, "choose_stack")
+
+
+async def _set_stack_and_continue(update: Update, context: ContextTypes.DEFAULT_TYPE, stack: str):
+    """Persist chosen stack and continue into shared setup (or buy CTA if unpaid)."""
+    user_id = update.effective_user.id
+    db.set_metadata(user_id, "stack", stack)
+    db.log_event(user_id, "stack_chosen", {"stack": stack})
+    user_row = db.get_user(user_id) or {}
+    label = "Hermes" if stack == "hermes" else "OpenClaw"
+    target = update.message or update.callback_query.message
+
+    if not user_row.get("paid") or user_row.get("refunded"):
+        await target.reply_text(
+            f"Got it — *{label}* saved.\n\n"
+            "Unlock setup with /buy, then /paid to start.",
+            parse_mode=MD,
+        )
+        return
+
+    # Paid: if still choosing stack (or restarting), enter shared flow.
+    stage = user_row.get("stage") or "start"
+    if stage in ("start", "choose_stack", "complete") or stage not in flow.STAGES:
+        await target.reply_text(f"✅ Stack set to *{label}*.", parse_mode=MD)
+        await _advance_to(update, context, "confirm_ready")
+    else:
+        await target.reply_text(
+            f"✅ Stack set to *{label}*. Continue with /status — "
+            f"you're on `{stage}`.",
+            parse_mode=MD,
+        )
 
 
 async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -294,31 +345,36 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     await _ensure_user(update)
 
-    if query.data == "demo":
+    if query.data in ("stack_hermes", "stack_openclaw"):
+        stack = "hermes" if query.data == "stack_hermes" else "openclaw"
+        await _set_stack_and_continue(update, context, stack)
+
+    elif query.data == "demo":
         await query.message.reply_text(
             "📹 *What you'll build:*\n\n"
-            "*Week 1:* cloud server + OpenClaw + first website live.\n"
+            "*Week 1:* cloud server + Hermes or OpenClaw + first website live.\n"
             "*Week 3:* trading bot monitoring Kalshi/Polymarket 24/7.\n"
             "*Month 2:* iOS app shipped to App Store — no Mac needed.\n"
             "*Month 3:* freelance clients @ $500–1200/site.\n\n"
             "Real results. Real timeline.\n\n"
-            "Ready? /buy to start.",
+            "Ready? Pick Hermes or OpenClaw on /start, then /buy.",
             parse_mode=MD,
         )
 
     elif query.data == "how":
         await query.message.reply_text(
             "💬 *How ClawBot works*\n\n"
-            "1️⃣ Pay $49 via Stripe (or USDC)\n"
-            "2️⃣ I guide you step-by-step in this chat\n"
-            "3️⃣ 30 minutes later: OpenClaw is running on your server\n"
-            "4️⃣ First website is LIVE\n"
-            "5️⃣ 7 days of support included\n\n"
-            "*If anything doesn't work → instant refund. No questions.*\n\n"
+            "1️⃣ Pick Hermes or OpenClaw\n"
+            "2️⃣ Pay $49 via Stripe (or USDC)\n"
+            "3️⃣ I guide you step-by-step in this chat\n"
+            "4️⃣ ~30 minutes later: your agent is running on your server\n"
+            "5️⃣ First website is LIVE\n"
+            "6️⃣ 7 days of support included\n\n"
+            "*If anything doesn't work → refund window. No questions.*\n\n"
             "Compare:\n"
             "❌ DIY guide: 3–6 hours, 40% give up\n"
             "❌ Fiverr: $100–200, hit or miss\n"
-            "✅ ClawBot: 30 min, 98% success\n\n"
+            "✅ ClawBot: ~30 min, guided\n\n"
             "Ready? /buy",
             parse_mode=MD,
         )
@@ -351,13 +407,13 @@ async def on_button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     elif query.data.startswith("faq_"):
         category = query.data[4:]
         if category == "all":
-            text = faq_module.format_faq()
+            faq_text = faq_module.format_faq()
             keyboard = [[InlineKeyboardButton("🔙 Back to Topics", callback_data="back")]]
         else:
-            text = faq_module.format_faq(category)
+            faq_text = faq_module.format_faq(category)
             keyboard = faq_module.get_categories_keyboard()
         await query.message.reply_text(
-            text, parse_mode=MD, reply_markup=InlineKeyboardMarkup(keyboard)
+            faq_text, parse_mode=MD, reply_markup=InlineKeyboardMarkup(keyboard)
         )
 
     elif query.data == "back":
@@ -376,6 +432,11 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
     # Gate the flow on payment except for early stages.
     if not user_row.get("paid") or user_row.get("refunded"):
+        # Allow pre-pay stack pick via text (Hermes / OpenClaw).
+        picked = flow.normalize_stack(text)
+        if picked:
+            await _set_stack_and_continue(update, context, picked)
+            return
         await update.message.reply_text(
             "👀 To start the setup I'll need your $49 payment first.\n"
             "Tap /buy to get a secure Stripe link."
@@ -389,15 +450,34 @@ async def on_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         return
 
+    # choose_stack: reply Hermes or OpenClaw (buttons also work).
+    if stage == "choose_stack":
+        picked = flow.normalize_stack(text)
+        if picked:
+            await _set_stack_and_continue(update, context, picked)
+            return
+        await update.message.reply_text(
+            flow.CHOOSE_STACK_PROMPT,
+            reply_markup=_stack_keyboard(),
+            parse_mode=MD,
+        )
+        return
+
     keywords = stage_data.get("keywords") or []
+    project_stages = ("first_project", "hermes_first_project")
     matched = (
         any(kw in text for kw in keywords) if keywords else False
-    ) or (stage == "first_project" and ("http" in text))
+    ) or (stage in project_stages and ("http" in text))
 
     if matched:
-        if stage == "first_project":
+        if stage in project_stages and (
+            "http" in text or "vercel.app" in text or "://" in text
+        ):
             db.set_metadata(user_id, "deployed_url", update.message.text.strip())
         next_stage = stage_data.get("next_stage")
+        if stage == "ssh_connect":
+            stack = (user_row.get("metadata") or {}).get("stack")
+            next_stage = flow.next_after_ssh(stack)
         if next_stage:
             await _advance_to(update, context, next_stage)
         else:

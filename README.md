@@ -1,6 +1,6 @@
 # 🦞 ClawBot — Premium OpenClaw Setup Assistant
 
-A $49 Telegram bot that guides users through setting up OpenClaw on a cloud server in ~30 minutes. Stripe-gated, refundable, deployable to Fly.io (Railway retired — too expensive).
+A $49 Telegram bot that guides users through setting up Hermes or OpenClaw on a cloud server in ~30 minutes. Stripe-gated, refundable, deployable to Fly.io (Railway retired — too expensive).
 
 ## Layout
 
@@ -99,7 +99,11 @@ clawbot-setup/
 
 User goes through these stages in `flow.py`:
 
-`start → confirm_ready → aws_account → server_launch → termius_install → ssh_connect → openclaw_install → api_key → first_project → complete`
+`start → choose_stack → confirm_ready → aws_account → server_launch → termius_install → ssh_connect`
+  then OpenClaw: `openclaw_install → api_key → first_project → complete`
+  or Hermes: `hermes_install → hermes_api_key → hermes_first_project → complete`
+
+Chosen stack is stored in user `metadata["stack"]` (`hermes` | `openclaw`).
 
 Advancement requires a paid status + a keyword match in the user's reply. Non-text messages no longer crash the handler.
 
